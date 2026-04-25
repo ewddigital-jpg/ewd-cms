@@ -189,31 +189,31 @@
     });
   }
 
-  // Click on images to replace them
+  // Click on images to replace them — compress + embed as data URL (no server needed)
   function makeImagesReplaceable() {
     document.querySelectorAll('img').forEach(img => {
       if (img.closest('#ewd-bar,#ewd-overlay')) return;
       img.dataset.ewdImg = '1';
-      img.addEventListener('click', () => {
+
+      // Show hover badge
+      img.title = '📷 Klicken um Bild zu ändern';
+
+      img.addEventListener('click', e => {
+        e.preventDefault();
+        e.stopPropagation();
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = 'image/*';
         input.onchange = async () => {
           const file = input.files[0];
           if (!file) return;
-          setStatus('⏳ Bild wird hochgeladen...');
+          setStatus('⏳ Bild wird verarbeitet...');
           try {
-            const b64 = await fileToBase64(file);
-            const filename = 'images/' + Date.now() + '_' + file.name.replace(/\s/g, '_');
-            await fetch(CFG.api + '/api/upload', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ repo: CFG.repo, filename, content: b64 })
-            });
-            img.src = filename;
-            setStatus('✅ Bild hochgeladen');
+            const dataUrl = await compressImage(file);
+            img.src = dataUrl;
+            setStatus('✅ Bild ersetzt — klick Speichern wenn fertig');
           } catch (e) {
-            setStatus('❌ Fehler beim Hochladen: ' + e.message);
+            setStatus('❌ Fehler: ' + e.message);
           }
         };
         input.click();
@@ -221,12 +221,25 @@
     });
   }
 
-  function fileToBase64(file) {
-    return new Promise((res, rej) => {
-      const r = new FileReader();
-      r.onload = () => res(r.result.split(',')[1]);
-      r.onerror = rej;
-      r.readAsDataURL(file);
+  // Compress image to JPEG via canvas (max 1200px wide, quality 0.82)
+  function compressImage(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const image = new Image();
+      image.onload = () => {
+        const MAX = 1200;
+        const ratio = Math.min(MAX / image.width, 1);
+        const w = Math.round(image.width * ratio);
+        const h = Math.round(image.height * ratio);
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(image, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      image.onerror = reject;
+      image.src = url;
     });
   }
 
