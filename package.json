@@ -1,0 +1,7 @@
+{
+  "name": "ewd-cms",
+  "version": "1.0.0",
+  "description": "EWD Inline CMS for GitHub Pages",
+  "type": "module",
+  "engines": { "node": ">=18" }
+}
